@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+# wm-move-to-workspace
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+shopt -s xpg_echo
+
+bold="\033[1m"
+green="\033[32m"
+red="\033[31m"
+reset="\033[0m"
+
+usage() {
+  echo "${bold}Usage:${reset} ${green}wm-move-to-workspace${reset} WORKSPACE"
+  echo
+  echo "- Move window to provided workspace. Create it if it doesn't exist."
+}
+
+# print usage on no arguments, or -h/--help
+if [[ "$#" -eq 0 ]] || [[ "$#" -eq 1 && ( "$1" == "-h" || "$1" == "--help" ) ]]; then
+  usage
+  exit
+fi
+
+workspace="$1"
+if [[ $platform == "macos" ]]; then
+  # for yabai, we create a new space if the wanted workspace doesn't exist
+  # Note: We might end up with a workspace with an index lower than the one
+  # requested, I think this is ok because we want to avoid creating
+  # intermediate empty workspaces on macOS.
+  if ! wm-workspace-exists $workspace > /dev/null 2>&1; then
+    yabai -m space --create
+    workspace="$(yabai -m query --spaces --display | jq 'map(select(."is-native-fullscreen" == false))[-1].index')"
+  fi
+
+  yabai -m window --space "$workspace"
+  exit $?
+else
+  # swaymsg, fallback to i3-msg
+  source ./lib/swaymsg.sh
+
+  # run the command "move container to workspace number"
+  swaymsg "move container to workspace number $workspace"
+fi

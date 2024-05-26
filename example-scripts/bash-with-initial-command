@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+# bash-with-initial-command
+# - Launch a new interactive bash session and run the provided command. 
+# - The shell remains interactive after the command exits
+# - Source: https://serverfault.com/a/586272/1035714
+#
+# - Note: This is not meant to be called directly from a bash shell. In cases
+#   in which a subshell is needed, you can simple run 'bash -c "command"'. When
+#   it finishes, you will be returned to the original shell. 
+#   Rather, this is meant to be called, from example, as the initial command of a
+#   terminal emulator, which would both set-up an interactive shell and run an
+#   initial shell command.
+# - It also saves the command into the bash history, so that it can be recalled
+#   after the command exits.
+
+command="$@"
+if [ -z "$command" ]; then
+    echo "No command provided"
+    exit 1
+fi
+
+# update history file and append command
+history -a
+echo "$command" >> "$HISTFILE"
+
+# launch new interactive bash session with .bashrc sourced, history loaded, and
+# command run
+bash --init-file <(echo ". \"$HOME/.bashrc\"; history -r; $command")

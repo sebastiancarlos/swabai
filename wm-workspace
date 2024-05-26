@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+
+# wm-launch
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+shopt -s xpg_echo
+
+bold="\033[1m"
+green="\033[32m"
+red="\033[31m"
+reset="\033[0m"
+
+usage() {
+  echo "${bold}Usage:${reset} ${green}wm-workspace${reset} [OPTIONS] [VALUE]"
+  echo
+  echo "- Go to provided workspace. Create it if it doesn't exist."
+  echo "- If no value is provided, print the current workspace."
+  echo
+  echo "VALUE can be:"
+  echo '- "next", "prev", "next-empty", or a number.'
+  echo
+  echo "OPTIONS:"
+  echo '  -q, --quiet               Do not print any output. (Useful for wrapping scripts'
+  echo '                            with their own outputs.)'
+  echo "  -h, --help                Show this help message."
+}
+
+# swaymsg, fallback to i3-msg
+source ./lib/swaymsg.sh
+
+# parse options
+quiet=0
+workspace=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    -q|--quiet)
+      quiet=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    current|next|prev|next-empty|[0-9]*)
+      workspace=$1
+      shift
+      ;;
+    *)
+      echo "Invalid argument: $1" 
+      [[ $quiet -eq 0 ]] && usage
+      exit 1
+      ;;
+  esac
+done
+
+# if no argument, print current workspace
+if [[ "$workspace" == "" ]]; then
+  wm-workspace-get-current
+  exit 0
+fi
+
+# yabai function to create a new workspace and switch to it
+function yabai-create-and-switch-to-workspace() {
+  yabai -m space --create
+  index="$(yabai -m query --spaces --display | jq 'map(select(."is-native-fullscreen" == false))[-1].index')"
+  yabai -m space --focus "$index"
+}
+
+# handle "next", "prev" and number, in which case we message the window manager
+if [[ "$workspace" =~ ^[0-9]+$ ]] || [[ "$workspace" == "next" ]] || [[ "$workspace" == "prev" ]]; then
+  [[ $quiet -eq 0 ]] && echo "Going to workspace ${green}${workspace}${reset} ..."
+
+  if [[ $platform == "macos" ]]; then
+    # for yabai, we switch if it already exists
+    if wm-workspace-exists $workspace > /dev/null 2>&1; then
+      yabai -m space --focus "$workspace"
+      exit $?
+    else
+      # otherwise, we create a new space and switch to it
+      yabai-create-and-switch-to-workspace
+      exit $?
+    fi
+  else
+    swaymsg -- workspace --no-auto-back-and-forth "$workspace"
+  fi
+fi
+
+# handle "next-empty"
+if [[ "$workspace" == "next-empty" ]]; then
+  # in yabai, this is the default behavior, so no need to calculate anything
+  if [[ $platform == "macos" ]]; then
+    yabai-create-and-switch-to-workspace
+    exit $?
+  fi
+
+  workspace=$(wm-workspace-get-next-empty)
+  [[ $quiet -eq 0 ]] && echo "Going to workspace ${green}${workspace}${reset} ..."
+  swaymsg -- workspace --no-auto-back-and-forth "$workspace"
+fi
+
+# # wait for workspace to change before exiting
+# while true; do
+#   current_workspace=$(wm-workspace-get-current)
+#   if [[ "$current_workspace" != "$workspace" ]]; then
+#     sleep 0.1
+#   else
+#     break
+#   fi
+# done

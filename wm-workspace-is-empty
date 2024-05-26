@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# wm-is-workspace-empty
+#  - Print 'true' if workspace is empty, 'false' otherwise
+#  - If workspace doesn't exist, print 'workspace doesn't exist' and exit with 1
+#  - Also, exit codes are 0 and 1 respectively
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+shopt -s xpg_echo
+
+bold="\033[1m"
+green="\033[32m"
+reset="\033[0m"
+
+function usage() {
+  echo "${bold}Usage:${reset} ${green}wm-is-workspace-empty${reset} <workspace>"
+  echo "  - Print 'true' if workspace is empty, 'false' otherwise"
+  echo "  - If workspace doesn't exist, print 'workspace doesn't exist' and exit with 1"
+  echo "  - Also, exit codes are 0 and 1 respectively"
+}
+
+# print usage message on -h/--help
+if [[ "$#" -eq 1 && ($1 == "-h" || $1 == "--help") ]]; then
+  usage
+  exit 0
+fi
+
+# check if workspace is provided
+if [[ "$#" -ne 1 ]]; then
+  usage
+  exit 1
+fi
+
+# first, check if workspace exists
+if ! wm-workspace-exists $1 > /dev/null; then 
+  echo "workspace doesn't exist"
+  exit 1
+fi
+
+if [[ "$platform" == "macos" ]]; then
+  # get windows in workspace and check if it's empty
+  windows=$(yabai -m query --windows --space "$1")
+  if [[ "$windows" == "[]" ]]; then
+    echo "true"
+    exit 0
+  else
+    echo "false"
+    exit 1
+  fi
+fi
+
+# swaymsg, fallback to i3-msg
+source ./lib/swaymsg.sh
+
+# get windows in workspace and check if it's empty
+workspace_nodes=$(swaymsg -t get_tree | jq -r --arg workspace "$1" '.nodes[].nodes[] | select(.name==$workspace) | .nodes[]')
+if [[ -z "$workspace_nodes" ]]; then
+  echo "true"
+  exit 0
+else
+  echo "false"
+  exit 1
+fi

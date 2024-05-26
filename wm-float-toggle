@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+# wm-float-toggle
+# - This is a window manager function (currently configured only for sway)
+# - Toggle the current focus between tiling and floating mode
+# - If becoming floating, add a border
+# - If becoming tiling, remove the border
+# - This command is meant to be bound to the "float toggle" keybinding in the
+#   window manager, therefore there is no need to run it directly from a
+#   terminal.
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+# print usage on -h/--help
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+  echo "Usage: wm-float-toggle"
+  echo "  - Toggle the current focus between tiling and floating mode"
+  echo "  - If becoming floating, add a border"
+  echo "  - If becoming tiling, remove the border"
+  exit
+fi
+
+if [[ "$platform" == "macos" ]]; then
+  # for yabai, just toggle float and center on screen
+  # unfortunally borders are not supported
+  yabai -m window --toggle float --grid 4:4:1:1:2:2
+  exit
+fi
+
+# check is the focus is floating by checking "get_tree"
+# - if the focused node has "type" == "floating_con", it is floating
+floating=$(swaymsg -t get_tree | jq -r '.. | select(.focused?) | .type')
+if [[ "$floating" == "floating_con" ]]; then
+  floating="true"
+else
+  floating="false"
+fi
+
+if [[ "$floating" == "true" ]]; then
+  # if floating, make it tiling
+  command="floating disable, border none"
+else
+  # if tiling, make it floating
+  command="floating enable, border pixel 1"
+fi
+
+# print message to window manager log
+echo "wm-float-toggle: ${command}"
+  
+# send command to sway
+swaymsg "${command}"

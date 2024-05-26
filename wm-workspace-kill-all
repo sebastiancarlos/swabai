@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+# wm-workspace-kill-all
+# - close all windows in all workspaces (except floating windows)
+
+shopt -s xpg_echo
+
+bold="\033[1m"
+green="\033[32m"
+reset="\033[0m"
+
+# print usage with -h/--help
+if [[ "$#" -eq 1 && ("$1" == "-h" || "$1" == "--help") ]]; then
+    echo "${bold}Usage:${reset} ${green}wm-workspace-kill-all${reset}"
+    echo "  - Close all windows in all workspaces (except floating windows)"
+    exit 0
+fi
+
+if [[ "$platform" == "macos" ]]; then
+  # first, close all other spaces
+  non_focused_spaces=$(yabai -m query --spaces | jq -r '.[] | select(."has-focus"==false) | .index')
+  for space in $non_focused_spaces; do
+    yabai -m space --destroy $space
+  done
+
+  wm-workspace-kill
+  exit
+fi
+
+# get all workspaces
+workspaces=$(swaymsg -t get_workspaces | jq -r '.[] | .name')
+
+# close all windows in all workspaces
+for workspace in $workspaces; do
+  windows=$(swaymsg -t get_tree | jq -r --arg workspace "$workspace" '.nodes[].nodes[] | select(.name==$workspace) | .nodes[].id')
+  for window in $windows; do
+    swaymsg '[con_id='$window'] kill'
+  done
+done
+
+echo "Closed all windows in all workspaces (except floating windows)"

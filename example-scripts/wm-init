@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# wm-init
+# - This is a window manager function (currently configured only for sway)
+# - Generates the initial window manager state, which currently consists of:
+# - Note: The script assumes that all workspaces are empty.
+
+# open browser (profile 2) in workspace 1 
+wm-workspace 1
+wm-launch-browser --profile 2 
+
+# open browser (profile 1) in workspace 2 
+wm-workspace 2
+wm-launch-browser --profile 1 
+
+# open terminal in workspace 3
+wm-workspace 3
+wm-launch-terminal
+
+# create launcher (a sticky terminal in the scratchpad)
+wm-launch-terminal
+wm-move-to-scratchpad

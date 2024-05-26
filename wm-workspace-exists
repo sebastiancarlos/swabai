@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+# wm-workspace-exists
+#  - Print 'true' if workspace exists, 'false' otherwise
+#  - Also, exit codes are 0 and 1 respectively
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+shopt -s xpg_echo
+
+bold="\033[1m"
+green="\033[32m"
+reset="\033[0m"
+
+function usage() {
+  echo "${bold}Usage:${reset} ${green}wm-workspace-exists${reset} <workspace>"
+  echo "  - Print 'true' if workspace exists, 'false' otherwise"
+  echo "  - Also, exit codes are 0 and 1 respectively"
+}
+
+# print usage message on -h/--help
+if [[ "$#" -eq 1 && ($1 == "-h" || $1 == "--help") ]]; then
+  usage
+  exit 0
+fi
+
+# check if workspace is provided
+if [[ "$#" -ne 1 ]]; then
+  usage
+  exit 1
+fi
+
+if [[ "$platform" == "macos" ]]; then
+  yabai -m query --spaces --space $1 > /dev/null 2>&1
+  if [[ $? -eq 0 ]]; then
+    echo "true"
+    exit 0
+  else
+    echo "false"
+    exit 1
+  fi
+fi
+
+# swaymsg, fallback to i3-msg
+source ./lib/swaymsg.sh
+
+workspace_info=$(swaymsg -t get_workspaces | jq ".[] | select(.num==$1)")
+if [[ -n "$workspace_info" ]]; then
+  echo "true"
+  exit 0
+else
+  echo "false"
+  exit 1
+fi

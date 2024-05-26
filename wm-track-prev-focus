@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+# Source: https://gitlab.com/wef/dotfiles/-/blob/master/bin/i3-track-prev-focus
+
+# https://gitlab.com/wef/dotfiles/-/blob/master/bin/sway-track-prev-focus
+# shellcheck disable=SC2034
+TIME_STAMP="20231126.172745"
+
+# Copyright (C) 2020-2021 Bob Hepple <bob dot hepple at gmail dot com>
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at
+# your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+# I like these bindings:
+# bindsym $mod+grave [con_mark=_prev] focus
+# to enable fast switching between 2 apps
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+# from https://gist.github.com/ckafi
+wm="i3"
+msg="i3-msg"
+term="i3-sensible-terminal"
+[[ "$SWAYSOCK" ]] && {
+    wm="sway"
+    msg="swaymsg"
+}
+
+case $1 in
+    -h|--help)
+        echo "Usage: $( basename "$0" )"
+        echo
+        echo "Tracks focus changes in i3/sway, renames workspaces and marks windows with _prev. This enables the following key binding:" |fmt
+        echo "    bindsym \$mod+grave [con_mark=_prev] focus"
+        exit 0
+        ;;
+esac
+
+if [[ "$platform" == "macos" ]]; then
+  echo "This function is only available on Linux"
+  exit 1
+fi
+
+[[ "$SWAYSOCK" ]] && prev_focus=$( $msg -r -t get_seats | jq '.[0].focus' ) # fails on i3
+
+$msg -m -t subscribe '["window"]' 2> /dev/null | \
+    jq --unbuffered -r 'select(.change == "focus").container.id' | \
+    while read -r new_focus; do
+        # Commented out variation:
+        # - Don't set transparency if new focus is floating
+        # - Rationale is that floating has borders, which already convey focus
+        # $msg -t get_tree | jq -r --argjson id "$new_focus" 'recurse(.nodes[]) | recurse(.floating_nodes[]) | select(.id == $id) | .type' | grep -v floating_con && \
+          # $msg -- "[con_id=${prev_focus}] opacity 0.91" &>/dev/null
+
+        $msg -- "[con_id=${prev_focus}] opacity 0.91" &>/dev/null
+        $msg -- "[con_id=${new_focus}] opacity 1" &>/dev/null
+        prev_focus=$new_focus
+    done

@@ -1,0 +1,26 @@
+#! /usr/bin/env bash
+
+# This script is meant to be called from 'make install'
+# It takes 'bindir' (by default set to /usr/local/bin)
+# and 'libdir' (by default set to /usr/local/lib)
+
+set -e
+
+BINDIR=${1}
+LIBDIR=${2}
+
+# First, create the LIBDIR and BINDIR directories
+mkdir -p ${LIBDIR}
+mkdir -p ${BINDIR}
+
+# Copy all scripts to LIBDIR/swabai
+mkdir -p ${LIBDIR}/swabai
+files=$(find . -maxdepth 1 -type f -executable)
+for file in ${files}; do
+    cp -p ${file} ${LIBDIR}/swabai
+    echo "Copied ${file} to ${LIBDIR}/swabai"
+done
+
+# Then copy the ./lib folder to LIBDIR/swabai
+cp -p -r lib ${LIBDIR}/swabai
+echo "Copied ./lib to ${LIBDIR}/swabai"

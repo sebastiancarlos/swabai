@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+
+# wm-launch
+
+shopt -s xpg_echo
+
+bold="\033[1m"
+green="\033[32m"
+red="\033[31m"
+reset="\033[0m"
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+# get ids and app_ids of all containers
+# - this is used to figure out when the program has launched
+get_tree_info() {
+  if [[ "$platform" == "macos" ]]; then
+    yabai -m query --windows | jq -r '.[] | "\(.id) \(.app) \(.title)"'
+    return
+  else
+    swaymsg -t get_tree | jq -r \
+      'recurse(.nodes[]) | recurse(.floating_nodes[]) | select(.type == "con") | "\(.id) \(.app_id) \(.window_properties.instance)"'
+  fi
+}
+
+usage() {
+  echo "${bold}Usage:${reset} ${green}wm-launch${reset} [OPTIONS] [--]  <command> [arguments...]"
+  echo "       ${green}wm-launch${reset} [OPTIONS] [--] '<command> [arguments...]'"
+  echo
+  echo "- Launch a command. Meant to be called from a wrapper script or alias, which in turn"
+  echo "  is called from a terminal running in the Sway/i3 scratchpad."
+  echo
+  echo "- After running it, the scratchpad is hidden. This is meant to simulate the UX of an"
+  echo "  application launcher like rofi, but from a terminal running in the scratchpad."
+  echo
+  echo "Options:"
+  echo "  -w, --workspace=<value>   Launch the command in the given workspace."
+  echo "                            - VALUE can be \"current\" (default), \"next\", \"prev\","
+  echo "                              \"next-empty\", or a number."
+  echo "  -n, --no-hide-scratchpad  Do not hide the scratchpad after launching the command."
+  echo "  -e, --window-name <value> Used to check for the new window's existence (by app_id"
+  echo "                            or instance). When the window exists, wm-launch exits."
+  echo "                            With no value (default), exit as soon as a new window"
+  echo "                            is created."
+  echo "  -t, --no-wait             Do not wait for a window to open. Exit immediately."
+  echo "  -q, --quiet               Do not print any output. (Useful for wrapping scripts"
+  echo "                            with their own outputs.)"
+  echo "  -d, --debug               Print debug output."
+  echo "  -h, --help                Show this help message."
+  echo
+  echo "Example:"
+  echo "  # in .bashrc"
+  echo "  alias firefox='wm-launch --workspace=next-empty -- firefox'"
+  echo
+  echo " <mod>- # open scratchpad"
+  echo " firefox<ret> # launch firefox, scratchpad is then hidden."
+
+}
+
+# parse options
+hide_scratchpad=1
+quiet=0
+debug=0
+wait_for_window=1
+go_to_workspace="current"
+window_name=""
+while true; do
+  case "$1" in
+    -n|--no-hide-scratchpad)
+      hide_scratchpad=0
+      shift
+      ;;
+    -q|--quiet)
+      quiet=1
+      shift
+      ;;
+    -d|--debug)
+      debug=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -w|--workspace)
+      go_to_workspace=$2
+      shift 2
+      ;;
+    -e|--window-name)
+      window_name=$2
+      shift 2
+      ;;
+    -t|--no-wait)
+      wait_for_window=0
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+# print usage on invalid arguments
+if [[ $# -eq 0 ]]; then
+  usage
+  exit 1
+fi
+
+# handle workspace
+if [[ $go_to_workspace != "current" ]]; then
+  wm-workspace --quiet $go_to_workspace
+  if [[ $? -ne 0 ]]; then
+    exit 1
+  fi
+fi
+
+# check if the scratchpad is focused at the time of calling this script.
+is_scratchpad_focused=$(wm-scratchpad-is-focused)
+
+# store current list of container IDs and 'app_id's
+old_tree=$(get_tree_info)
+
+[[ $quiet -eq 0 ]] && echo "${bold}wm-launch:${reset} Launching ${green}$@${reset} ..."
+
+# Run command in the background
+background-exec "$@"
+
+# wait for the program to launch
+# - this is done by checking if the tree has changed
+# - skip is --no-wait was provided
+# TODO: Re-enable once this bug is fixed:
+#   - https://github.com/swaywm/sway/issues/7864
+waiting_time=0 
+printed_message=0
+if [[ $wait_for_window -eq 1 ]]; then
+  while true; do
+    # print message after 5 seconds
+    if [[ $waiting_time -gt 5000 && $printed_message -eq 0 ]]; then
+      if [[ $quiet -eq 0 ]]; then
+        echo "${bold}wm-launch:${reset} The program is taking a long time to launch."
+        printed_message=1
+      fi
+    fi
+    new_tree=$(get_tree_info)
+    if [[ "$new_tree" != "$old_tree" ]]; then
+      # if "window-name" was provided, check if diff contains the string
+      if [[ -n "$window_name" ]]; then
+        diff=$(diff <(echo "$old_tree") <(echo "$new_tree"))
+        if [[ "$diff" == *"$window_name"* ]]; then
+          break
+        fi
+      else
+        break
+      fi
+    fi
+    sleep 0.001
+    waiting_time=$((waiting_time+1))
+  done
+fi
+
+[[ $quiet -eq 0 ]] && echo "${bold}wm-launch:${reset} ${green}Done!${reset}"
+
+# If launching from the scratchpad, hide it aftrewards
+# - This simulates the UX of application launchers like rofi, but for a
+#   terminal running in the scratchpad.
+if [[ $hide_scratchpad -eq 1 && $is_scratchpad_focused == "true" ]]; then
+  wm-scratchpad-toggle --quiet
+  if [[ $? -ne 0 ]]; then
+    exit 1
+  fi
+fi

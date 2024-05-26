@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+
+# wm-scratchpad-toggle
+# - "advanced" version of "swaymsg scratchpad show" with one advantage:
+#   It toggles the scratchpad even if it's not currently focused, but only
+#   visible in the current workspace.
+# - Relies on the scratchpad having the mark "scratchpad".
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+shopt -s xpg_echo
+
+bold="\033[1m"
+green="\033[32m"
+reset="\033[0m"
+
+usage() {
+  echo "${bold}Usage:${reset} ${green}wm-scratchpad-toggle${reset} [-h|--help] [-q|--quiet]"
+  echo " - \"advanced\" version of \"swaymsg scratchpad show\" with one advantage:"
+  echo "   It toggles the scratchpad even if it's not currently focused, but only visible"
+  echo "   in the current workspace."
+  echo " - Relies on the scratchpad having the mark \"scratchpad\"."
+}
+
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+quiet=0
+if [[ "$1" == "-q" || "$1" == "--quiet" ]]; then
+  quiet=1
+fi
+
+# on macos/yabai, simply run 'yabai -m window --toggle scratchpad', where
+# "scratchad" is the label of the scratchpad window
+if [[ "$platform" == "macos" ]]; then
+  source ./lib/wm-constants.sh
+
+  yabai -m window --toggle scratchpad
+
+  # if we're toggling the scratchpad, we also want to make sure it's not in
+  # fullscreen
+  scratchpad_id=$(yabai -m query --windows | jq -r '.[] | select(.scratchpad == "scratchpad") | .id')
+  if [[ -n "$scratchpad_id" ]]; then
+    yabai -m window $scratchpad_id --grid "${YABAI_FLOATING_WINDOW_GRID}"
+  fi
+
+  exit 0
+fi
+
+# swaymsg, fallback to i3-msg
+source ./lib/swaymsg.sh
+
+# sanity check: bail if window with mark "scratchpad" doesn't exist
+scratchpad=$(swaymsg -t get_tree | jq -r '.nodes[] .nodes[] | recurse(.floating_nodes[]) | select(.marks[0] == "scratchpad")')
+if [[ -z "$scratchpad" ]]; then
+  echo "No scratchpad found"
+  echo "Make sure you have a floating window with the mark \"scratchpad\""
+  echo "(Did you forget to bing your bind wm-move-to-scratchpad? Or to use it?)"
+  exit 1
+fi
+
+# check if scratchpad is viisble by checking if a floating container in the current workspace has the scratchpad mark
+workspace=$(wm-workspace-get-current)
+scratchpad_in_current_workspace=$(swaymsg -t get_tree | jq -r --arg workspace "$workspace" '.nodes[] .nodes[] | select(.type == "workspace" and .name == $workspace) | recurse(.floating_nodes[]) | select(.marks[0] == "scratchpad")')
+
+is_scratchpad_visible=0
+if [ -n "$scratchpad_in_current_workspace" ]; then
+  is_scratchpad_visible=1
+fi
+
+if [[ $is_scratchpad_visible -eq 1 ]]; then
+  [[ $quiet -eq 0 ]] && echo "Hiding scratchpad"
+
+  # hiding the scratchpad requires focusing it first.
+  swaymsg '[con_mark="scratchpad"] focus'
+  swaymsg scratchpad show
+
+else
+  [[ $quiet -eq 0 ]] && echo "Showing scratchpad"
+  swaymsg scratchpad show
+fi
+
+exit 0

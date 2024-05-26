@@ -1,0 +1,19 @@
+#! /usr/bin/env bash
+
+# This script is meant to be called from 'make uninstall'
+# It takes 'bindir' (by default set to /usr/local/bin)
+# and 'libdir' (by default set to /usr/local/lib)
+
+set -e
+
+BINDIR=${1}
+LIBDIR=${2}
+
+# First delete the LIBDIR/swabai folder
+rm -rf ${LIBDIR}/swabai
+
+# Finally, delete all symlinks
+files=$(find . -maxdepth 1 -type f -executable)
+for file in ${files}; do
+  rm -f ${BINDIR}/${file}
+done

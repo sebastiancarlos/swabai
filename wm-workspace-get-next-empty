@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+# wm-workspace-get-next-empty
+#  - Print number of the first empty workspace to the right of the current one
+#    (or the current workspace if it is empty).
+
+shopt -s xpg_echo
+
+bold="\033[1m"
+green="\033[32m"
+reset="\033[0m"
+
+# print usage message on -h/--help
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+  echo "${bold}Usage:${reset} ${green}wm-workspace-get-next-empty${reset}"
+  echo "  - Print number of the first empty workspace to the right of the"
+  echo "    current one (or the current workspace if it is empty)."
+  exit 0
+fi
+
+# get number of first empty workspace to the right of the current one
+current_workspace=$(wm-workspace-get-current)
+
+next_workspace=""
+i=$current_workspace
+while true; do
+  # if workspace doesn't exist, we found it 
+  if ! wm-workspace-exists "$i" > /dev/null; then
+    next_workspace="${i}"
+    break
+  fi
+
+  # if workspace is empty, we found it
+  if wm-workspace-is-empty "$i" > /dev/null; then
+    next_workspace="${i}"
+    break
+  fi
+
+  # else, increment current workspace and try again
+  i=$((i+1))
+done
+
+echo "${next_workspace}"

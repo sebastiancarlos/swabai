@@ -1,0 +1,61 @@
+# focus window
+cmd - h : yabai -m window --focus west
+cmd - j : yabai -m window --focus south
+cmd - k : yabai -m window --focus north
+cmd - l : yabai -m window --focus east
+
+# swap managed window
+shift + cmd - h : yabai -m window --swap west
+shift + cmd - j : yabai -m window --swap south
+shift + cmd - k : yabai -m window --swap north
+shift + cmd - l : yabai -m window --swap east
+
+# fast focus desktop
+cmd - 1 : wm-workspace 1
+cmd - 2 : wm-workspace 2
+cmd - 3 : wm-workspace 3
+cmd - 4 : wm-workspace 4
+cmd - 5 : wm-workspace 5
+cmd - 6 : wm-workspace 6
+cmd - 7 : wm-workspace 7
+cmd - 8 : wm-workspace 8
+cmd - 9 : wm-workspace 9
+
+# focus desktop to the left right (cmd - <left> or cmd - <right>)
+cmd - left  : yabai -m space --focus prev
+cmd - right : yabai -m space --focus next
+
+# send window to desktop
+shift + cmd - 1 : wm-move-to-workspace 1
+shift + cmd - 2 : wm-move-to-workspace 2
+shift + cmd - 3 : wm-move-to-workspace 3
+shift + cmd - 4 : wm-move-to-workspace 4
+shift + cmd - 5 : wm-move-to-workspace 5
+shift + cmd - 6 : wm-move-to-workspace 6
+shift + cmd - 7 : wm-move-to-workspace 7
+shift + cmd - 8 : wm-move-to-workspace 8
+shift + cmd - 9 : wm-move-to-workspace 9
+
+# toggle window zoom
+cmd - f : wm-fullscreen-toggle
+
+# float / unfloat window and center on screen
+shift + cmd - space : wm-float-toggle
+
+# open new terminal
+cmd - return : wm-launch-terminal
+
+# open new terminal in next free space
+shift + cmd - return : wm-launch-terminal --next-workspace
+
+# scratchad - make focused window the scratchpad (cmd + shift + minus)
+shift + cmd - 0x1B : wm-move-to-scratchpad
+
+# Start a browser
+shift + cmd - b : wm-launch-browser --no-automation --profile 1
+
+# Start a browser in the current workspace
+shift + cmd - s : wm-launch-browser --no-automation --profile 1 --same-workspace
+
+# scratchad - toggle (cmd + minus)
+cmd - 0x1B : wm-scratchpad-toggle

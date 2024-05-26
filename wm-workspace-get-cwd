@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+
+# wm-workspace-get-cwd
+
+bold="\033[1m"
+green="\033[32m"
+reset="\033[0m"
+
+shopt -s xpg_echo
+
+# swaymsg, fallback to i3-msg
+source ./lib/swaymsg.sh
+
+# print usage with -h/--help
+if [[ "$#" -eq 1 && ($1 == "-h" || $1 == "--help") ]]; then
+    echo "${bold}Usage:${reset} ${green}wm-workspace-get-cwd${reset} [workspace-name]"
+    echo "  - Prints the CWD of the first window in the provided workspace"
+    echo "  - If no workspace is provided, uses the currently focused workspace"
+    echo "  - If there is no window in the workspace, return ~"
+    exit 0
+fi
+
+# if workspace name was provided, use it. else, get focused workspace name
+if [[ -n $1 ]]; then
+  workspace=$1
+else
+  workspace=$(wm-workspace-get-current)
+fi
+
+if [[ "$platform" == "macos" ]]; then
+  # get pid of all windows in the worwkspace. The smallest pid must correspond to the first window
+  window_pids=$(yabai -m query --windows --space $workspace | jq -r '.[].pid')
+  first_window_pid=$(echo $window_pids | tr ' ' '\n' | sort -n | head -n 1)
+else
+  # get first window in workspace 
+  # - By getting every node in the workspace (even nested nodes), and
+  #   returning the first one with a PID. 
+  # - This assumes that the first window is a terminal.
+  # - Naturally, there's no such thing as a "worspace cwd" in Sway,
+  #   we just assume that the first window's cwd represents the 
+  #   entire workspace's cwd conceptually.
+  first_window_pid=$(swaymsg -t get_tree | jq -r --arg workspace "$workspace" '.nodes[].nodes[] | select(.name==$workspace) | recurse(.nodes[]) | del(.nodes) | select(.pid) | .pid' | head -n 1)
+fi
+
+# if pid was found, get its cwd. else return $HOME
+if [[ -n $first_window_pid ]]; then
+    echo $(get-terminal-cwd $first_window_pid)
+else
+    echo "$HOME"
+fi

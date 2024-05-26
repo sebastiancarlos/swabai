@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+
+# wm-launch-browser
+# - This is a window manager function
+# - It opens a browsers in workspace to the first empty workspace to the right
+#   of the current one (or the current workspace if it is empty).
+# - Also accepts arguments "1" and "2" to open profiles one or two,
+#   respectively.
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+# swaymsg, fallback to i3-msg
+source ./lib/swaymsg.sh
+
+shopt -s xpg_echo
+
+bold="\033[1m"
+green="\033[32m"
+reset="\033[0m"
+
+# print usage message on -h/--help
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+  echo "${bold}Usage:${reset} ${green}wm-launch-browser${reset} [--profile 1|2] [--same-workspace] [<url>]"
+  echo "  - Opens a browser in the first empty workspace to the right of the"
+  echo "    current one (or the current workspace if it is empty)."
+  echo "  - Also accepts arguments \"1\" and \"2\" to open profiles one or two,"
+  echo "    respectively."
+  echo "  - Also can open in the current workspace with \"--same-workspace\"."
+  echo "  - Pass --no-automation to open a browser without automation."
+  exit 0
+fi
+
+# parse opitons and arguments
+automated_browser="true"
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --profile)
+      if [[ "$2" == "1" ]] || [[ "$2" == "2" ]]; then
+        profile="$2"
+      else
+        echo "Invalid profile: $2"
+        exit 1
+      fi
+      shift 2
+      ;;
+    --same-workspace)
+      same_workspace="true"
+      shift
+      ;;
+    --no-automation)
+      automated_browser="false"
+      shift
+      ;;
+    *)
+      if [[ -n "$url" ]]; then
+        echo "Invalid argument: $1"
+        exit 1
+      fi
+      url="$1"
+      shift
+      ;;
+  esac
+done
+
+# get number of first empty workspace to the right of the current one
+browser_workspace=""
+if [[ "${same_workspace}" == "true" ]]; then
+  browser_workspace="$(wm-workspace-get-current)"
+else
+  browser_workspace="$(wm-workspace-get-next-empty)"
+fi
+
+# build "open browsers" command
+
+# try to find a browser in the system. Priority is 'chromium', then 'google-chrome'
+browser=""
+if command -v chromium &> /dev/null; then
+  browser="chromium"
+elif command -v google-chrome &> /dev/null; then
+  browser="google-chrome"
+else
+  echo "No browser found"
+  exit 1
+fi
+
+if [[ "${automated_browser}" == "true" ]]; then
+  command="beachpatrol"
+else
+  command="${browser}"
+fi
+args=()
+
+# if profile is "1" or "2", open profile one or two, respectively
+if [[ "$profile" == "1" ]]; then
+  if [[ "${automated_browser}" == "true" ]]; then
+    args+=("--profile" "default")
+  else
+    args+=("--profile-directory=Default")
+  fi
+elif [[ "$profile" == "2" ]]; then
+  if [[ "${automated_browser}" == "true" ]]; then
+    args+=("--profile" "2")
+  else
+    args+=("--profile-directory=Profile 2")
+  fi
+fi
+
+# print message to window manager log
+message="${bold}wm-launch-browser:${reset} Opening ${green}${browser}${reset}"
+if [[ -n "${profile}" ]]; then
+  message+=" (profile ${bold}${profile}${reset})"
+fi
+message+=" in workspace ${bold}${browser_workspace}${reset}"
+if [[ "${browser_workspace}" == "$(wm-workspace-get-current)" ]]; then
+  message+=" (current)"
+fi
+echo -e "${message}"
+  
+# move to workspace
+# swaymsg "workspace --no-auto-back-and-forth ${browser_workspace}"
+wm-workspace "${browser_workspace}"
+
+echo "command: ${command}"
+echo "args: ${args[@]}"
+
+# launch browser
+# swaymsg exec "${command}"
+wm-launch -- ${command} "${args[@]}"
+# wm-launch -- swaymsg exec ${command} "${args[@]}"
+
+# open url, if provided
+if [[ -n "${url}" ]]; then
+  "${command}" "${url}"
+fi
+
+# there is a bug with the arrangement of chromium screen, this if fixed by
+# opening another screen in the same workspace and then closing it.
+# So, this script waits 2 seconds (enought time for chromium to open), then
+# opens a terminal on the same workspace, and after another second closes it
+# again.
+if [[ "$platform" == "linux" ]]; then
+  if [[ "${same_workspace}" != "true" ]]; then
+    # swaymsg "workspace --no-auto-back-and-forth ${browser_workspace}"
+    wm-workspace "${browser_workspace}"
+    wm-launch-terminal
+    swaymsg kill
+  fi
+fi

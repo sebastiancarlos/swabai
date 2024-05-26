@@ -1,0 +1,84 @@
+#! /usr/bin/env python
+
+import re
+import os
+import subprocess
+
+TEMPLATE_FILE = 'README-template.md'
+OUTPUT_FILE = '../README.md'
+
+inserts = {}
+
+def get_output(command: list[str]) -> str:
+    """ Run a command and return its output as a string. """
+    out = subprocess.check_output(command, encoding="utf-8")
+
+    # remove trailing newline, if any
+    if out[-1] == '\n':
+        out = out[:-1]
+
+    return out
+
+commands = [
+    "background-exec",
+    "get-terminal-cwd",
+    "wm-workspace",
+    "wm-workspace-exists",
+    "wm-workspace-get-cwd",
+    "wm-workspace-kill",
+    "wm-workspace-kill-all",
+    "wm-workspace-get-current",
+    "wm-workspace-get-next-empty",
+    "wm-workspace-is-empty",
+    "wm-swap-workspaces",
+    "wm-move-to-workspace",
+    "wm-fullscreen-toggle",
+    "wm-float-toggle",
+    "wm-scratchpad-is-focused",
+    "wm-scratchpad-toggle",
+    "wm-move-to-scratchpad",
+    "wm-launch",
+    "wm-track-prev-focus",
+    "wm-print-tree"
+]
+
+# generate 'commands-help'
+template = """\
+### `{command}`
+
+```bash
+{usage}
+```
+"""
+commands_help = []
+for command in commands:
+    usage = get_output([f"./{command}", "--help"])
+    # remove ANSI escape codes from output
+    usage = re.sub(r'\x1b\[[0-9;]*m', '', usage)
+
+    commands_help.append(
+        template.format(
+            command=command,
+            usage=usage,
+        )
+    )
+inserts['commands_help'] = "\n".join(commands_help)
+
+script_dir = os.path.dirname(os.path.realpath(__file__))
+template_path = os.path.join(script_dir, TEMPLATE_FILE)
+with open(template_path, "r") as file:
+    template_content = file.read()
+
+# replace placeholders
+for key, value in inserts.items():
+    placeholder_pattern = f"<!-- INSERT {key} -->"
+    template_content = re.sub(placeholder_pattern, value, template_content)
+
+# prepend notice
+notice = "<!-- Note: This README.md file was automatically generated. Plase run `make readme` to generate a new one. -->"
+template_content = notice + "\n\n" + template_content
+
+# write output
+output_path = os.path.join(script_dir, OUTPUT_FILE)
+with open(output_path, "w") as file:
+    file.write(template_content)

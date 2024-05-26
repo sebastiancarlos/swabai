@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+# wm-launch-terminal
+# - This is a window manager function (currently configured only for sway).
+# - It opens a terminal in current workspace, in the current directory.
+# - It is recommended to bind this script to a key combination in your window
+#   manager configuration.
+# - It also allows to pass an initial command to run in the terminal.
+# - It also allows to open the terminal in the next empty workspace
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+shopt -s xpg_echo
+
+bold="\033[1m"
+green="\033[32m"
+reset="\033[0m"
+
+# print usage on -h/--help
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  echo "${bold}Usage:${reset} ${green}wm-launch-terminal${reset} [OPTIONS] [COMMAND]"
+  echo "  - Opens a terminal in current workspace, in the current directory."
+  echo "  - It also allows to pass an initial command to run in the terminal."
+  echo "  - It also allows to open the terminal in the next empty workspace"
+  echo ""
+  echo "Options:"
+  echo "  -h, --help          Print this help message"
+  echo "  --next-workspace    Open terminal in next empty workspace"
+  echo ""
+  exit 0
+fi
+
+# Get cwd.
+# - this is done by getting pid of focused window (assumed to be a terminal
+#   emulator)
+# - then getting the pid of its child (assumed to be a shell)
+# - and then getting its cwd
+# Note: This will work even if the focused window is not a terminal emulator.
+#       If this produces UX problems, consider checking if it's a terminal
+#       emulator and defaulting to $HOME otheriwse.
+if [[ "$platform" == "macos" ]]; then
+  focused_window_pid=$(yabai -m query --windows --window | jq -r '.pid')
+else
+  focused_window_pid=$(swaymsg -t get_tree | jq -r '.. | select(.focused?) | .pid')
+fi
+
+if [[ -z "${focused_window_pid}" ]]; then
+  # if there is no window focused, default to $HOME
+  cwd="${HOME}"
+else
+  # get cwd of focused window
+  cwd="$(get-terminal-cwd ${focused_window_pid})"
+fi
+
+# build "open terminal" command
+terminal="alacritty"
+terminal_command="${terminal} --working-directory ${cwd}"
+
+# check if --next-workspace flag is passed
+if [[ "$1" == "--next-workspace" ]]; then
+  workspace=$(wm-workspace-get-next-empty)
+  shift
+else
+  workspace=$(wm-workspace-get-current)
+fi
+
+# if arguments are passed, assume they are a command to run in the terminal
+if [[ $# -gt 0 ]]; then
+  terminal_command="${terminal_command} -e bash-with-initial-command '""$@""'"
+fi
+
+# print message to window manager log
+message="${bold}wm-launch-terminal${reset}: Opening ${green}${terminal}${reset}\n"
+message+="  - With cwd:        $(pretty_print_directory ${cwd})\n"
+message+="  - In workspace:    ${bold}${workspace}${reset}"
+if [[ "${workspace}" == "$(wm-workspace-get-current)" ]]; then
+  message+=" (current)"
+fi
+echo -e "${message}"
+
+# if custom command, print that too
+if [[ $# -gt 0 ]]; then
+  echo "  - Running command: $@"
+fi
+
+# optionally change workspace
+if [[ "${workspace}" != "$(wm-workspace-get-current)" ]]; then
+  wm-workspace "${workspace}"
+fi
+  
+# launch
+# swaymsg -t command exec "${terminal_command}"
+# wm-launch -- swaymsg exec "${terminal_command}"
+wm-launch -- "${terminal_command}"

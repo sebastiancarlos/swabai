@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+# if calling without arguments or with -h or --help, print usage
+if [[ $# -eq 0 ]] || [[ $1 == "-h" ]] || [[ $1 == "--help" ]]; then
+    echo "Usage: get-terminal-cwd <terminal-pid>"
+    echo "  - return the CWD of the terminal with the given PID"
+    echo "  - this is done by checking the first child of the terminal, which is usually a shell"
+    echo "  - default to ~ if there is no child"
+    exit 0
+fi
+
+source ./lib/platform.sh
+
+if [[ ${platform} == "macos" ]]; then
+  # on macos, the first child of the terminal is the login shell, so we need to
+  # get its child
+  first_child=$(command pgrep -a -P $1 | head -n 1)
+  first_child=$(command pgrep -a -P $first_child | head -n 1)
+
+  # if there is no child, default to $HOME
+  if [[ -z "${first_child}" ]]; then
+    echo "${HOME}"
+  else
+    # instead of /proc, we use lsof to get the cwd of the shell
+    echo $(lsof -p ${first_child} | grep cwd | awk '{print $9}')
+  fi
+  exit 0
+else
+  # get pid of first child of terminal, assumed to be a shell
+  first_child=$(command pgrep -P $1 | head -n 1)
+
+  # if there is no child, default to $HOME
+  if [[ -z "${first_child}" ]]; then
+    echo "${HOME}"
+  else
+    echo $(readlink -f /proc/${first_child}/cwd)
+  fi
+fi

@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+# wm-scratchpad-is-focused
+
+
+# print usage on -h/--help
+if [[ "$1" == '-h' || "$1" == '--help' ]]; then
+    echo 'Usage: wm-scratchpad-is-focused'
+    echo '  - If focused, returns 0 and print "true"'
+    echo '  - If not, returns 1 and print "false"'
+    exit 0
+fi
+
+quiet=0
+if [[ "$1" == '-q' || "$1" == '--quiet' ]]; then
+    quiet=1
+fi
+
+# if macos, assume yabai
+if [[ "$platform" == 'macos' ]]; then
+  # check if the focused window has the property "scratchpad" = "scratchpad".
+  # That is, it's a scratchpad labeled "scratchpad".
+  is_scratchpad=$(yabai -m query --windows --window | jq -e 'select(.scratchpad == "scratchpad")' > /dev/null)
+  if [[ $? -eq 0 ]]; then
+    [[ $quiet -eq 0 ]] && echo "true"
+    exit 0
+  else
+    [[ $quiet -eq 0 ]] && echo "false"
+    exit 1
+  fi
+fi
+
+# swaymsg, fallback to i3-msg
+source ./lib/swaymsg.sh
+
+# Query sway for the focused container id and scratchpad id.
+focused_container=$(swaymsg -t get_tree | jq -r 'recurse(.nodes[]) | recurse(.floating_nodes[]) | select(.focused) | .id')
+
+scratchpad_id=$(swaymsg -t get_tree | jq -r 'recurse(.nodes[]) | recurse(.floating_nodes[]) | select(.marks[0] == "scratchpad") | .id')
+
+if [ "$focused_container" == "$scratchpad_id" ]; then
+    [[ $quiet -eq 0 ]] && echo "true"
+    exit 0
+else
+    [[ $quiet -eq 0 ]] && echo "false"
+    exit 1
+fi
+

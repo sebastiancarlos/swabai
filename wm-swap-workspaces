@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+# wm-swap-workspaces
+
+green='\033[0;32m'
+red='\033[0;31m'
+bold='\033[1m'
+reset='\033[0m'
+
+function usage () {
+  echo -e "${bold}Usage:${bold}${reset} ${green}wm-swap-workspaces${reset} <workspace1> <workspace2>"
+  echo -e "       ${green}wm-swap-workspaces${reset} left|right"
+}
+
+# swaymsg, fallback to i3-msg
+source ./lib/swaymsg.sh
+
+# print usage on -h/--help
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+function get-current-workspace() {
+  if [[ "$platform" == "macos" ]]; then
+    yabai -m query --spaces --space | jq '.index' --monochrome-output
+  else
+    swaymsg -t get_workspaces | jq -r '.[] | select(.focused==true).name'
+  fi
+}
+
+# if called with "left" or "right", swap current workspace with the one in that
+# direction
+directional_argument=""
+if [[ "$#" -eq 1 && ("$1" == "left" || "$1" == "right") ]]; then
+  wp1=$(get-current-workspace)
+  if [[ "$1" == "left" ]]; then
+    directional_argument="left"
+    wp2=$((wp1-1))
+  else
+    directional_argument="right"
+    wp2=$((wp1+1))
+  fi
+elif [[ "$#" -eq 2 ]]; then
+  wp1=$1
+  wp2=$2
+else
+  usage
+  exit 1
+fi
+
+# If one of the workspaces doesn't exist, exit
+check_workspace() {
+  if ! wm-workspace-exists "$1" > /dev/null; then
+    if [[ "$directional_argument" != "" ]]; then
+      echo -e "${red}${bold}Error:${reset} Already on ${directional_argument}most workspace."
+    else
+      echo -e "${red}${bold}Error:${reset} Workspace $1 doesn't exist."
+    fi
+    exit 1
+  fi
+}
+check_workspace "$wp1"
+check_workspace "$wp2"
+
+# swap workspaces
+if [[ "$platform" == "macos" ]]; then
+  yabai -m space "$wp1" --swap "$wp2"
+else
+  swaymsg "rename workspace $wp1 to __tmp__"
+  swaymsg "rename workspace $wp2 to $wp1"
+  swaymsg "rename workspace __tmp__ to $wp2"
+fi
+
+# generate display name of swapped workspaces.
+# - if one of the swapped workspaces is the current one, mark it with a
+#   "(current)" label
+currentwp=$(get-current-workspace)
+wp1_display="$wp1"
+wp2_display="$wp2"
+if [[ "$currentwp" == "$wp1" ]]; then
+  wp1_display="$wp1 (current)"
+elif [[ "$currentwp" == "$wp2" ]]; then
+  wp2_display="$wp2 (current)"
+fi
+
+echo -e "${green}Swapped workspaces${reset} ${bold}${wp1_display}${reset} ${green}and${reset} ${bold}${wp2_display}${reset}."

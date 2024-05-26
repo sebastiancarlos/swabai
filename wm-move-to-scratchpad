@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+# wm-move-to-scratchpad
+# - Move the focused window to the scratchpad (and add wm-available styling)
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+green='\033[0;32m'
+red='\033[0;31m'
+bold='\033[1m'
+reset='\033[0m'
+
+shopt -s xpg_echo
+
+# print usage on -h or --help
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  echo "${bold}Usage:${reset} ${green}wm-move-to-scratchpad${reset}"
+  echo "  - Move the focused window to the scratchpad"
+  echo "  - Also add a border and a mark called \"scratchpad\""
+  exit 0
+fi
+
+# for macos/yabai, label as "scratchpad", and set dimensions
+if [[ "$platform" == "macos" ]]; then
+  source ./lib/wm-constants.sh
+
+  yabai -m window --scratchpad scratchpad
+  # if the above command fails, bail out. as this means another window is
+  # already the scratchpad
+  if [[ $? -ne 0 ]]; then
+    exit 1
+  fi
+
+  yabai -m window --grid "${YABAI_FLOATING_WINDOW_GRID}"
+  echo "Moved window to scratchpad."
+  exit 0
+fi
+
+# swaymsg, fallback to i3-msg
+source ./lib/swaymsg.sh
+
+# this is a personal preference
+swaymsg border pixel 1
+
+# Mark the window as "scratchpad", needed to interact with it.
+# - Note: The name "scratchpad" might not be accurate since there's a
+#         difference between the scratchpad and a window in the scratchpad
+#         (this). However, my Sway workflow relies on having only one window in
+#         the scratchpad at a time, so this is fine for me.
+swaymsg mark 'scratchpad'
+
+# float it, give it dimensions 719 x 673, then move to scratchpad
+# - this is needed because sometimes the size is not set correctly
+# - the size provided is that which happens when doing it manually on my
+#   current monitor.
+# TODO: Figure out why this doesn't work 
+swaymsg floating enable
+swaymsg resize set 719 673 
+swaymsg move scratchpad
+
+echo "Moved window to scratchpad."

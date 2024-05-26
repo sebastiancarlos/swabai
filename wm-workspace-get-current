@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+# wm-get-workspace
+#  - Print name of current workspace
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+
+shopt -s xpg_echo
+
+bold="\033[1m"
+green="\033[32m"
+reset="\033[0m"
+
+# print usage message on -h/--help
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+  echo "${bold}Usage:${reset} ${green}wm-workspace-get-current${reset}"
+  echo "  - Print name of current workspace"
+  exit 0
+fi
+
+
+if [[ "$platform" == "macos" ]]; then
+  yabai -m query --spaces --space | jq '.index'
+  exit $?
+fi
+
+# swaymsg, fallback to i3-msg
+source ./lib/swaymsg.sh
+
+# get number of first empty workspace to the right of the current one
+workspaces=$(swaymsg -t get_workspaces)
+current_workspace=$(echo "${workspaces}" | jq '.[] | select(.focused==true).num')
+
+echo "${current_workspace}"

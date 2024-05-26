@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+# wm-fullscreen-toggle
+#  - Toggle fullscreen mode for the focused window
+
+# get platform info, populates 'platform' and 'apple_silicon' variables
+source ./lib/platform.sh
+
+shopt -s xpg_echo
+
+bold="\033[1m"
+green="\033[32m"
+reset="\033[0m"
+
+function usage() {
+  echo "${bold}Usage:${reset} ${green}wm-fullscreen-toggle${reset}"
+  echo "  - Toggle fullscreen mode for the focused window"
+}
+
+# print usage message on -h/--help
+if [[ "$#" -eq 1 && ($1 == "-h" || $1 == "--help") ]]; then
+  usage
+  exit 0
+fi
+
+if [[ "$platform" == "macos" ]]; then
+  source ./lib/wm-constants.sh
+
+  # first we handle the simple case of not being a scratchpad window
+  if ! wm-scratchpad-is-focused > /dev/null; then
+    yabai -m window --toggle zoom-fullscreen
+  else
+    # for yabai, a scratchpad window won't go fullscreen. 
+    # This is because a scratchpad is a floating windows, and they can't be
+    # fullscreen. This is by desing:
+    # - https://github.com/koekeishiya/yabai/issues/317
+    # So we'll just change the grid to cover the entire screen if it's not
+    # already. 
+    # And we check that by seeing if 'frame'.'x'. is at 0. Or, more specifically
+    # if it's value begins with "0" or "-0".
+    if [[ $(yabai -m query --windows --window | jq '.frame.x') =~ ^-?0 ]]; then
+      yabai -m window --grid "${YABAI_FLOATING_WINDOW_GRID}"
+    else
+      yabai -m window --grid 1:1:0:0:1:1
+    fi
+  fi
+  exit 0
+fi
+
+# swaymsg, fallback to i3-msg
+source ./lib/swaymsg.sh
+
+# just call 'fullscreen'
+swaymsg fullscreen 
