@@ -47,3 +47,6 @@ yabai -m config                                 \
 yabai -m signal --add event=space_changed action="sh ./cleanEmptySpaces.sh"
 
 echo "yabai configuration loaded.."
+
+# set up initial workspaces
+wm-init
