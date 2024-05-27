@@ -1,6 +1,6 @@
 <!-- Note: This README.md file was automatically generated. Plase run `make readme` to generate a new one. -->
 
-# SWABAI (A wrapper for Sway, i3, and Yabai)
+# SWABAI (A wrapper for the Sway/i3/Yabai tiling window managers)
 <p align="center">
   <img width="400" alt="Screenshot 2024-04-27 at 17 09 31" src="https://github.com/sebastiancarlos/swabai/assets/88276600/bae83e06-2891-40ba-83ef-9c06c83f5133">
 </p>

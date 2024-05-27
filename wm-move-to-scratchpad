@@ -33,6 +33,10 @@ if [[ "$platform" == "macos" ]]; then
   fi
 
   yabai -m window --grid "${YABAI_FLOATING_WINDOW_GRID}"
+
+  # then toggle it to hide it
+  wm-scratchpad-toggle
+
   echo "Moved window to scratchpad."
   exit 0
 fi
