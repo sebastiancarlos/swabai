@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+# SCRIPT_DIR is set to the directory where this script is localed. It it was
+# run by a symlink, it will be resolved to the directory of the target script
+# (that is, the actual script directory).
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+if [[ -L "${BASH_SOURCE[0]}" ]]; then
+    SCRIPT_DIR="$(readlink "${BASH_SOURCE[0]}")"
+    SCRIPT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" >/dev/null 2>&1 && pwd )"
+fi
+
 # Source: https://gitlab.com/wef/dotfiles/-/blob/master/bin/i3-track-prev-focus
 
 # https://gitlab.com/wef/dotfiles/-/blob/master/bin/sway-track-prev-focus
@@ -26,7 +35,7 @@ TIME_STAMP="20231126.172745"
 # to enable fast switching between 2 apps
 
 # get platform info, populates 'platform' and 'apple_silicon' variables
-source ./lib/platform.sh
+source "${SCRIPT_DIR}"/lib/platform.sh
 
 # from https://gist.github.com/ckafi
 wm="i3"

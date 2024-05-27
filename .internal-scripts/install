@@ -15,7 +15,7 @@ mkdir -p ${BINDIR}
 
 # Copy all scripts to LIBDIR/swabai
 mkdir -p ${LIBDIR}/swabai
-files=$(find . -maxdepth 1 -type f -executable)
+files=$(find . -maxdepth 1 -type f -executable | sed 's|./||g')
 for file in ${files}; do
     cp -p ${file} ${LIBDIR}/swabai
     echo "Copied ${file} to ${LIBDIR}/swabai"

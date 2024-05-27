@@ -1,7 +1,16 @@
 #! /usr/bin/env bash
 
+# SCRIPT_DIR is set to the directory where this script is localed. It it was
+# run by a symlink, it will be resolved to the directory of the target script
+# (that is, the actual script directory).
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+if [[ -L "${BASH_SOURCE[0]}" ]]; then
+    SCRIPT_DIR="$(readlink "${BASH_SOURCE[0]}")"
+    SCRIPT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" >/dev/null 2>&1 && pwd )"
+fi
+
 # get platform info, populates 'platform' and 'apple_silicon' variables
-source ./lib/platform.sh
+source "${SCRIPT_DIR}"/lib/platform.sh
 
 # print usage on -h/--help 
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then

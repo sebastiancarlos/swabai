@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+# SCRIPT_DIR is set to the directory where this script is localed. It it was
+# run by a symlink, it will be resolved to the directory of the target script
+# (that is, the actual script directory).
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+if [[ -L "${BASH_SOURCE[0]}" ]]; then
+    SCRIPT_DIR="$(readlink "${BASH_SOURCE[0]}")"
+    SCRIPT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" >/dev/null 2>&1 && pwd )"
+fi
+
 # wm-scratchpad-toggle
 # - "advanced" version of "swaymsg scratchpad show" with one advantage:
 #   It toggles the scratchpad even if it's not currently focused, but only
@@ -7,7 +16,7 @@
 # - Relies on the scratchpad having the mark "scratchpad".
 
 # get platform info, populates 'platform' and 'apple_silicon' variables
-source ./lib/platform.sh
+source "${SCRIPT_DIR}"/lib/platform.sh
 
 shopt -s xpg_echo
 
@@ -37,7 +46,7 @@ fi
 # on macos/yabai, simply run 'yabai -m window --toggle scratchpad', where
 # "scratchad" is the label of the scratchpad window
 if [[ "$platform" == "macos" ]]; then
-  source ./lib/wm-constants.sh
+  source "${SCRIPT_DIR}"/lib/wm-constants.sh
 
   yabai -m window --toggle scratchpad
 
@@ -52,7 +61,7 @@ if [[ "$platform" == "macos" ]]; then
 fi
 
 # swaymsg, fallback to i3-msg
-source ./lib/swaymsg.sh
+source "${SCRIPT_DIR}"/lib/swaymsg.sh
 
 # sanity check: bail if window with mark "scratchpad" doesn't exist
 scratchpad=$(swaymsg -t get_tree | jq -r '.nodes[] .nodes[] | recurse(.floating_nodes[]) | select(.marks[0] == "scratchpad")')

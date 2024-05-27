@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 
+# SCRIPT_DIR is set to the directory where this script is localed. It it was
+# run by a symlink, it will be resolved to the directory of the target script
+# (that is, the actual script directory).
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+if [[ -L "${BASH_SOURCE[0]}" ]]; then
+    SCRIPT_DIR="$(readlink "${BASH_SOURCE[0]}")"
+    SCRIPT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" >/dev/null 2>&1 && pwd )"
+fi
+
 # wm-fullscreen-toggle
 #  - Toggle fullscreen mode for the focused window
 
 # get platform info, populates 'platform' and 'apple_silicon' variables
-source ./lib/platform.sh
+source "${SCRIPT_DIR}"/lib/platform.sh
 
 shopt -s xpg_echo
 
@@ -24,7 +33,7 @@ if [[ "$#" -eq 1 && ($1 == "-h" || $1 == "--help") ]]; then
 fi
 
 if [[ "$platform" == "macos" ]]; then
-  source ./lib/wm-constants.sh
+  source "${SCRIPT_DIR}"/lib/wm-constants.sh
 
   # first we handle the simple case of not being a scratchpad window
   if ! wm-scratchpad-is-focused > /dev/null; then
@@ -48,7 +57,7 @@ if [[ "$platform" == "macos" ]]; then
 fi
 
 # swaymsg, fallback to i3-msg
-source ./lib/swaymsg.sh
+source "${SCRIPT_DIR}"/lib/swaymsg.sh
 
 # just call 'fullscreen'
 swaymsg fullscreen 
