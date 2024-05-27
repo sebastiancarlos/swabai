@@ -24,3 +24,9 @@ done
 # Then copy the ./lib folder to LIBDIR/swabai
 cp -p -r lib ${LIBDIR}/swabai
 echo "Copied ./lib to ${LIBDIR}/swabai"
+
+# Finally, create symlinks to all scripts in BINDIR
+for file in ${files}; do
+    ln -s ${LIBDIR}/swabai/${file} ${BINDIR}/${file}
+    echo "Created symlink to ${file} in ${BINDIR}"
+done
